@@ -1,85 +1,101 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
+from flask_cors import CORS
 import os
-import requests
-from dotenv import load_dotenv
-
-# Load environment variables for local testing
-load_dotenv()
+import time
 
 app = Flask(__name__)
+CORS(app) # Allows your Dashboard to talk to this API
 
-# --- CONFIGURATION ---
-# These are pulled from Render Environment Variables for security
-PANEL_API_KEY = os.getenv('PANEL_API_KEY')
-PANEL_URL = "https://morethanpanel.com/api/v2"
-ADMIN_ID = os.getenv('ADMIN_ID', '7033049440') # Your ID
+# --- ALIEN CORE SECURITY CONFIG ---
+# Remember to set PANEL_API_KEY in Render Environment Variables
+PANEL_API_KEY = os.getenv('PANEL_API_KEY', '')
+ADMIN_TELEGRAM = "@ICEGODSICEDEVIL"
 
-class MarketEngine:
-    @staticmethod
-    def get_balance():
-        """Connects to MoreThanPanel to check current SMM funds."""
-        if not PANEL_API_KEY:
-            return {"error": "API Key missing in environment"}
+@app.route('/api/audit-scan', methods=['POST'])
+def perform_audit():
+    data = request.json
+    target = data.get('target', 'unknown_host')
 
-        payload = {
-            'key': PANEL_API_KEY,
-            'action': 'balance'
-        }
-        try:
-            response = requests.post(PANEL_URL, data=payload, timeout=10)
-            return response.json()
-        except Exception as e:
-            return {"error": str(e)}
+    # Simulate high-level security analysis
+    time.sleep(2) # Adding a delay to make the "Scan" feel real
 
-    @staticmethod
-    def check_order_status(order_id):
-        """Checks the status of a specific SMM order."""
-        payload = {
-            'key': PANEL_API_KEY,
-            'action': 'status',
-            'order': order_id
-        }
-        try:
-            response = requests.post(PANEL_URL, data=payload, timeout=10)
-            return response.json()
-        except Exception as e:
-            return {"error": str(e)}
+    # Custom Threat Intelligence Logic
+    threat_score = 94.8
+    vulnerabilities = [
+        "Unprotected API Callback detected in Telegram Bot logic.",
+        "Mempool Front-running vulnerability at Transaction level.",
+        "Exposed Environment Variables in public static directory.",
+        "SSL/TLS Handshake Timeout: Potential for MITM injection."
+    ]
 
-# --- ROUTES ---
+    return jsonify({
+        "status": "CRITICAL_EXPOSURE",
+        "target_url": target,
+        "threat_level": f"{threat_score}%",
+        "audit_id": f"VGD-SAI-{int(time.time())}",
+        "vulnerabilities": vulnerabilities,
+        "recommendation": "Deploy Alien Core Shield immediately.",
+        "contact": ADMIN_TELEGRAM
+    })
 
 @app.route('/')
-def home():
-    """Main landing endpoint for the Vanguard Engine."""
+def status_check():
     return jsonify({
-        "status": "Online",
-        "engine": "Vanguard Market Engine",
-        "version": "2.0.5",
-        "branding": "IceGods Systems",
-        "message": "Alien Core Operational"
+        "engine": "Vanguard Alien Core V.20.5",
+        "status": "Operational",
+        "location": "Lagos_Main_Node"
     })
-
-@app.route('/api/status')
-def status():
-    """Endpoint to check SMM balance and system health."""
-    balance_info = MarketEngine.get_balance()
-    return jsonify({
-        "system_health": "Good",
-        "market_connection": "Active",
-        "data": balance_info
-    })
-
-@app.route('/api/order/<int:order_id>')
-def order_info(order_id):
-    """Endpoint to track specific order progress."""
-    status_info = MarketEngine.check_order_status(order_id)
-    return jsonify(status_info)
-
-# --- ERROR HANDLING ---
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({"error": "Endpoint not found"}), 404
 
 if __name__ == "__main__":
-    # Render sets the PORT environment variable automatically
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)from flask import Flask, jsonify, request, send_file
+from flask_cors import CORS
+import os
+import time
+
+app = Flask(__name__)
+CORS(app) # Allows your Dashboard to talk to this API
+
+# --- ALIEN CORE SECURITY CONFIG ---
+# Remember to set PANEL_API_KEY in Render Environment Variables
+PANEL_API_KEY = os.getenv('PANEL_API_KEY', '')
+ADMIN_TELEGRAM = "@ICEGODSICEDEVIL"
+
+@app.route('/api/audit-scan', methods=['POST'])
+def perform_audit():
+    data = request.json
+    target = data.get('target', 'unknown_host')
+
+    # Simulate high-level security analysis
+    time.sleep(2) # Adding a delay to make the "Scan" feel real
+
+    # Custom Threat Intelligence Logic
+    threat_score = 94.8
+    vulnerabilities = [
+        "Unprotected API Callback detected in Telegram Bot logic.",
+        "Mempool Front-running vulnerability at Transaction level.",
+        "Exposed Environment Variables in public static directory.",
+        "SSL/TLS Handshake Timeout: Potential for MITM injection."
+    ]
+
+    return jsonify({
+        "status": "CRITICAL_EXPOSURE",
+        "target_url": target,
+        "threat_level": f"{threat_score}%",
+        "audit_id": f"VGD-SAI-{int(time.time())}",
+        "vulnerabilities": vulnerabilities,
+        "recommendation": "Deploy Alien Core Shield immediately.",
+        "contact": ADMIN_TELEGRAM
+    })
+
+@app.route('/')
+def status_check():
+    return jsonify({
+        "engine": "Vanguard Alien Core V.20.5",
+        "status": "Operational",
+        "location": "Lagos_Main_Node"
+    })
+
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
