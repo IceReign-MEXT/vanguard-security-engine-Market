@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VANGUARD COMMAND CENTER | ALIEN CORE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+        body { font-family: 'Space Mono', monospace; cursor: crosshair; }
+        .crt-overlay {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 255, 0, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 100;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(0, 0, 0, 0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scanline 6s linear infinite;
+        }
+        @keyframes scanline {
+            0% { bottom: 100%; }
+            100% { bottom: -100px; }
+        }
+    </style>
+</head>
+<body class="bg-black text-green-500 overflow-x-hidden">
+    <div class="crt-overlay fixed inset-0 z-50"></div>
+    <div class="scanline"></div>
+
+    <div class="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
+        <!-- Television Frame -->
+        <div class="w-full max-w-5xl border-8 border-zinc-800 rounded-[3rem] bg-zinc-900 p-4 shadow-[0_0_80px_rgba(0,0,0,1)]">
+            <div class="bg-black rounded-[2rem] p-6 md:p-10 border-4 border-zinc-800 relative overflow-hidden">
+                
+                <!-- Header -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-green-900/50 pb-6 mb-8 gap-4">
+                    <div class="flex items-center gap-4">
+                        <div id="shield-icon" class="p-3 bg-green-900/20 rounded-lg">
+                            <i data-lucide="shield" class="w-8 h-8"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-black tracking-tighter uppercase leading-none">VANGUARD <span id="status-text" class="text-blue-500">MONITOR</span></h1>
+                            <p class="text-[10px] text-zinc-600 mt-1 uppercase tracking-widest">Alien Core Logic // Unit_838</p>
+                        </div>
+                    </div>
+                    <div class="text-left md:text-right font-bold">
+                        <div class="text-xs text-green-700 uppercase flex items-center gap-2 md:justify-end">
+                            <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span> Live System Feed
+                        </div>
+                        <div class="text-[10px] text-zinc-700 mt-1">LAGOS_NODE_01 // SEC_V_20.5</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                    <!-- Console Side -->
+                    <div class="space-y-6">
+                        <div class="bg-black border border-green-900/30 p-4 h-64 flex flex-col justify-end text-xs md:text-sm overflow-hidden relative">
+                            <div id="console-logs" class="space-y-1">
+                                <div class="text-zinc-500">> VANGUARD_CORE_READY</div>
+                                <div class="text-zinc-500">> WAITING FOR TARGET DATA...</div>
+                            </div>
+                            <div class="animate-pulse inline-block w-2 h-4 bg-green-500 mt-1"></div>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <input id="url-input" type="text" placeholder="ENTER BOT URL / DOMAIN..." class="flex-1 bg-zinc-950 border border-green-900/50 p-4 outline-none text-green-400 focus:border-green-400 transition-all text-sm">
+                            <button onclick="runAudit()" class="bg-green-600 hover:bg-green-400 text-black font-black px-6 py-4 uppercase text-sm active:scale-95 transition-all">Scan</button>
+                        </div>
+                    </div>
+
+                    <!-- Visual Side -->
+                    <div id="visual-frame" class="bg-zinc-950/50 border-2 border-zinc-900 rounded-2xl flex flex-col items-center justify-center p-8 min-h-[300px] text-center">
+                        <div id="idle-view">
+                            <i data-lucide="cpu" class="w-20 h-20 text-zinc-800 mx-auto mb-4"></i>
+                            <p class="text-zinc-700 text-xs tracking-widest italic uppercase">Waiting for input packets...</p>
+                        </div>
+                        
+                        <div id="scanning-view" class="hidden w-full">
+                            <div id="progress-text" class="text-6xl font-black mb-4">0%</div>
+                            <div class="w-full bg-zinc-900 h-4 rounded-full overflow-hidden border border-zinc-800">
+                                <div id="progress-bar" class="bg-green-500 h-full w-0 transition-all duration-100"></div>
+                            </div>
+                            <p class="mt-6 text-xs animate-pulse uppercase">Decompiling target assets...</p>
+                        </div>
+
+                        <div id="result-view" class="hidden w-full">
+                            <i data-lucide="alert-triangle" class="w-16 h-16 text-red-500 mx-auto mb-4 animate-bounce"></i>
+                            <h2 class="text-red-500 text-3xl font-black uppercase mb-2">Vulnerability Detected</h2>
+                            <div class="bg-zinc-900 p-4 border border-zinc-800 rounded mb-6 flex justify-between">
+                                <div class="text-left"><p class="text-[8px] text-zinc-500">THREAT SCORE</p><p class="text-xl font-black text-red-500">94.8%</p></div>
+                                <div class="text-right"><p class="text-[8px] text-zinc-500">STATUS</p><p class="text-xl font-black text-yellow-500 italic">EXPOSED</p></div>
+                            </div>
+                            <div class="space-y-2">
+                                <button onclick="window.location.reload()" class="w-full bg-white text-black font-black py-4 uppercase text-sm flex items-center justify-center gap-2 hover:bg-zinc-300">
+                                    <i data-lucide="download" class="w-4 h-4"></i> Download Audit PDF
+                                </button>
+                                <a href="https://t.me/ICEGODSICEDEVIL" class="w-full border-2 border-blue-500 text-blue-500 font-black py-4 uppercase text-sm flex items-center justify-center gap-2 hover:bg-blue-500 hover:text-white transition-all">
+                                    <i data-lucide="zap" class="w-4 h-4"></i> Secure with Alien Core
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <p class="mt-8 text-[10px] text-zinc-700 tracking-[0.4em] uppercase">Vanguard Security Initiative // Institutional Documentation 838-B</p>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        const logsContainer = document.getElementById('console-logs');
+        
+        function addLog(msg, color = "text-green-500/80") {
+            const div = document.createElement('div');
+            div.className = color;
+            div.textContent = `> ${msg}`;
+            logsContainer.appendChild(div);
+            if (logsContainer.children.length > 8) logsContainer.removeChild(logsContainer.firstChild);
+        }
+
+        function runAudit() {
+            const url = document.getElementById('url-input').value;
+            if (!url) return;
+
+            document.getElementById('idle-view').classList.add('hidden');
+            document.getElementById('scanning-view').classList.remove('hidden');
+            document.getElementById('result-view').classList.add('hidden');
+            
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 1;
+                document.getElementById('progress-text').innerText = progress + '%';
+                document.getElementById('progress-bar').style.width = progress + '%';
+                
+                if (progress === 20) addLog(`CONNECTING: ${url}`);
+                if (progress === 50) addLog(`BYPASSING TARGET FIREWALL...`, "text-yellow-500");
+                if (progress === 80) addLog(`EXTRACTING API HEADERS...`);
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    showResults();
+                }
+            }, 60);
+        }
+
+        function showResults() {
+            document.getElementById('scanning-view').classList.add('hidden');
+            document.getElementById('result-view').classList.remove('hidden');
+            document.getElementById('status-text').innerText = "BREACH";
+            document.getElementById('status-text').className = "text-red-600";
+            document.getElementById('shield-icon').className = "p-3 bg-red-900/20 rounded-lg animate-pulse text-red-500";
+            addLog(`CRITICAL BREACH DETECTED IN TARGET`, "text-red-500 font-bold");
+        }
+    </script>
+</body>
+</html>
+
+
