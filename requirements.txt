@@ -1,7 +1,11 @@
+python-dotenv
 flask
 requests
-beautifulsoup4
+python-telegram-bot>=20.0
+web3
+asyncpg
+aiohttp
 gunicorn
-python-whois
+beautifulsoup4
+fpdf
 urllib3
-colorama
