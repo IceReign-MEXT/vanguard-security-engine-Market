@@ -9,9 +9,8 @@ DB_URL = os.getenv("DATABASE_URL")
 
 @app.route("/")
 def dashboard():
-    try:
-        conn = psycopg2.connect(DB_URL)
-        cur = conn.cursor()
+    # ... db logic ...
+    return render_template("index.html", scans=scans, total=total_scans, threats=threats)
 
         # Get Stats
         cur.execute("SELECT COUNT(*) FROM vanguard_logs;")
