@@ -1,6 +1,7 @@
 flask
-flask-cors
 requests
-python-dotenv
+beautifulsoup4
 gunicorn
-web3
+python-whois
+urllib3
+colorama

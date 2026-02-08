@@ -1,52 +1,104 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
 import os
 import time
+import requests
+import socket
+import ssl
+import datetime
+from urllib.parse import urlparse
+from bs4 import BeautifulSoup
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
-CORS(app) # Allows your Dashboard to talk to this API
 
-# --- ALIEN CORE SECURITY CONFIG ---
-# Remember to set PANEL_API_KEY in Render Environment Variables
-PANEL_API_KEY = os.getenv('PANEL_API_KEY', '')
-ADMIN_TELEGRAM = "@ICEGODSICEDEVIL"
+# --- AUDIT ENGINE ---
+def analyze_site(url):
+    if not url.startswith("http"):
+        url = "https://" + url
 
-@app.route('/api/audit-scan', methods=['POST'])
-def perform_audit():
-    data = request.json
-    target = data.get('target', 'unknown_host')
+    domain = urlparse(url).netloc
+    report = {
+        "url": url,
+        "domain": domain,
+        "score": 100,
+        "issues": [],
+        "speed": 0,
+        "ssl": False,
+        "seo": False
+    }
 
-    # Simulate high-level security analysis
-    time.sleep(2) # Adding a delay to make the "Scan" feel real
+    # 1. SPEED TEST
+    start_time = time.time()
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        r = requests.get(url, headers=headers, timeout=10)
+        report['speed'] = round(time.time() - start_time, 2)
 
-    # Custom Threat Intelligence Logic
-    threat_score = 94.8
-    vulnerabilities = [
-        "Unprotected API Callback detected in Telegram Bot logic.",
-        "Mempool Front-running vulnerability at Transaction level.",
-        "Exposed Environment Variables in public static directory.",
-        "SSL/TLS Handshake Timeout: Potential for MITM injection."
-    ]
+        if report['speed'] > 2.5:
+            report['score'] -= 30
+            report['issues'].append(f"⚠️ Critical Speed Issue: Load time is {report['speed']}s (Google wants < 2.5s).")
 
-    return jsonify({
-        "status": "CRITICAL_EXPOSURE",
-        "target_url": target,
-        "threat_level": f"{threat_score}%",
-        "audit_id": f"VGD-SAI-{int(time.time())}",
-        "vulnerabilities": vulnerabilities,
-        "recommendation": "Deploy Alien Core Shield immediately.",
-        "contact": ADMIN_TELEGRAM
-    })
+        if r.status_code != 200:
+            report['score'] -= 50
+            report['issues'].append(f"❌ Server Error: Returning Status Code {r.status_code}.")
 
+        # 2. SEO CHECK
+        soup = BeautifulSoup(r.text, 'html.parser')
+        if not soup.title or not soup.title.string:
+            report['score'] -= 10
+            report['issues'].append("⚠️ SEO Missing: No Page Title found.")
+        else:
+            report['seo'] = True
+
+        desc = soup.find("meta", attrs={"name": "description"})
+        if not desc:
+            report['score'] -= 10
+            report['issues'].append("⚠️ SEO Missing: No Meta Description (Invisible to Google).")
+
+    except Exception as e:
+        report['score'] = 0
+        report['issues'].append("💀 FATAL: Website is down or blocking scanners.")
+        return report
+
+    # 3. SSL SECURITY CHECK
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((domain, 443), timeout=5) as sock:
+            with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                cert = ssock.getpeercert()
+                report['ssl'] = True
+    except:
+        report['score'] -= 40
+        report['issues'].append("❌ SECURITY RISK: SSL Certificate is invalid or missing.")
+
+    # 4. GENERATE SALES PITCH
+    report['pitch'] = f"""
+    SUBJECT: Urgent issue with {domain}
+
+    Hello, I was visiting {domain} and noticed it took {report['speed']} seconds to load. 
+    Google penalizes sites slower than 2.5s.
+
+    Also detected:
+    - {len(report['issues'])} Technical Errors
+
+    I can fix these performance issues for a flat fee of $100.
+    Let me know if you want to save your traffic.
+    """
+
+    return report
+
+# --- ROUTES ---
 @app.route('/')
-def status_check():
-    return jsonify({
-        "engine": "Vanguard Alien Core V.20.5",
-        "status": "Operational",
-        "location": "Lagos_Main_Node"
-    })
+def home():
+    return render_template('index.html')
 
-if __name__ == "__main__":
-    # Render sets the PORT environment variable
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+@app.route('/scan', methods=['POST'])
+def scan():
+    data = request.json
+    url = data.get('url')
+    if not url: return jsonify({"error": "No URL provided"})
+
+    result = analyze_site(url)
+    return jsonify(result)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
