@@ -9,4 +9,3 @@ gunicorn
 beautifulsoup4
 fpdf
 urllib3
-psycopg2-binary
