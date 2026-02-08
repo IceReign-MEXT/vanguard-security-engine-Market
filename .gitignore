@@ -1,3 +1,13 @@
+# Secrets (Keep these safe on phone/Render only)
 .env
+
+# Python Junk
 __pycache__/
 *.pyc
+venv/
+
+# Generated Reports (Don't upload PDFs to GitHub)
+*.pdf
+
+# System
+.DS_Store
