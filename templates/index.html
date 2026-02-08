@@ -2,73 +2,52 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VANGUARD | SECURITY MONITOR</title>
+    <title>VANGUARD COMMAND</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; }
-        .border-green { border: 1px solid #00ff41; box-shadow: 0 0 10px #00ff41; }
-        .blink { animation: blinker 1s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
+        body { background-color: #050505; color: #00ff41; font-family: 'Courier New', monospace; }
+        .border-neon { border: 1px solid #00ff41; box-shadow: 0 0 10px #00ff41; }
     </style>
 </head>
-<body class="p-4 md:p-10">
+<body class="p-8">
     <div class="max-w-6xl mx-auto">
-        
-        <!-- HEADER -->
-        <header class="mb-10 flex justify-between items-center border-b border-[#00ff41] pb-4">
-            <h1 class="text-3xl font-bold">VANGUARD <span class="text-white">SECURITY</span></h1>
-            <div class="text-xs text-right">
-                <p>SYSTEM STATUS: <span class="blink">ONLINE</span></p>
-                <p>DATABASE: ENCRYPTED</p>
+        <header class="flex justify-between border-b border-green-500 pb-4 mb-8">
+            <h1 class="text-3xl font-bold">VANGUARD SECURITY</h1>
+            <div class="text-right">
+                <p>STATUS: <span class="text-white font-bold">ONLINE</span></p>
+                <p>DB LINK: ENCRYPTED</p>
             </div>
         </header>
 
-        <!-- METRICS -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-            <div class="p-6 border-green bg-black">
-                <h3 class="text-white text-sm">TOTAL TARGETS SCANNED</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-black border-neon p-6">
+                <h3 class="text-white text-sm">TOTAL SCANS</h3>
                 <p class="text-4xl font-bold mt-2">{{ total }}</p>
             </div>
-            <div class="p-6 border-green bg-black">
+            <div class="bg-black border-neon p-6">
                 <h3 class="text-red-500 text-sm">THREATS DETECTED</h3>
                 <p class="text-4xl font-bold mt-2 text-red-500">{{ threats }}</p>
             </div>
-            <div class="p-6 border-green bg-black">
-                <h3 class="text-white text-sm">ACTION REQUIRED</h3>
-                <a href="https://t.me/RobertSmithETH" class="block mt-2 bg-[#00ff41] text-black text-center py-2 font-bold hover:bg-white">CONTACT AGENT</a>
-            </div>
         </div>
 
-        <!-- LIVE FEED -->
-        <div class="border-green p-6 bg-black/80">
-            <h3 class="text-xl mb-4 text-white">📡 LIVE VULNERABILITY FEED</h3>
-            <table class="w-full text-left text-sm">
+        <div class="bg-black/90 border-neon p-6">
+            <h3 class="text-white mb-4">📡 LIVE VULNERABILITY FEED</h3>
+            <table class="w-full text-left text-xs">
                 <thead>
-                    <tr class="text-gray-500 border-b border-gray-800">
-                        <th class="py-2">TARGET</th>
-                        <th>ISSUES</th>
-                        <th>FIX COST</th>
-                        <th>STATUS</th>
-                    </tr>
+                    <tr class="text-gray-500 border-b border-gray-800"><th class="py-2">TARGET</th><th>ISSUES</th><th>FIX VALUE</th><th>STATUS</th></tr>
                 </thead>
-                <tbody class="text-gray-300">
+                <tbody>
                     {% for scan in scans %}
-                    <tr class="border-b border-gray-900 font-mono">
-                        <td class="py-3 text-[#00ff41]">{{ scan[0] }}</td>
+                    <tr class="border-b border-gray-900">
+                        <td class="py-3 text-white">{{ scan[0] }}</td>
                         <td class="py-3">{{ scan[1] }}</td>
-                        <td class="py-3 text-white font-bold">${{ scan[2] }}</td>
-                        <td class="py-3">
-                            <span class="{{ 'text-red-500' if 'CRITICAL' in scan[3] else 'text-green-500' }}">{{ scan[3] }}</span>
-                        </td>
+                        <td class="py-3 font-bold">${{ scan[2] }}</td>
+                        <td class="py-3 {{ 'text-red-500' if 'CRITICAL' in scan[3] else 'text-green-500' }}">{{ scan[3] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
     </div>
 </body>
 </html>
-
-

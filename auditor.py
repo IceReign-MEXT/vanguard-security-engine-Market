@@ -1,16 +1,18 @@
 import time
 import requests
+import socket
+import ssl
+import datetime
 from bs4 import BeautifulSoup
 from fpdf import FPDF
 from web3 import Web3
-from decimal import Decimal
+from urllib.parse import urlparse
 
 class VanguardAuditor:
     def __init__(self, rpc_url):
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
 
     def analyze_target(self, target):
-        # 1. Determine if Target is WEBSITE or WALLET
         if target.startswith("http") or "www" in target:
             return self.audit_website(target)
         elif target.startswith("0x") and len(target) == 42:
@@ -19,105 +21,79 @@ class VanguardAuditor:
             return None, "Invalid Target"
 
     def audit_website(self, url):
+        if not url.startswith("http"): url = "https://" + url
         report = []
         issues = 0
         fix_price = 0
-        fix_time = 0
 
-        start = time.time()
         try:
+            start = time.time()
             r = requests.get(url, timeout=10)
             speed = round(time.time() - start, 2)
 
-            # CHECK 1: SPEED
-            if speed > 2.0:
-                report.append(f"CRITICAL: Site load time is {speed}s (Standard is <1s). Google penalizes this.")
+            # 1. SPEED CHECK
+            if speed > 1.5:
+                report.append(f"CRITICAL: Load time {speed}s. Losing customers.")
                 issues += 1
                 fix_price += 200
-                fix_time += 2
             else:
-                report.append(f"PASS: Site speed is good ({speed}s).")
+                report.append(f"PASS: Speed optimal ({speed}s).")
 
-            # CHECK 2: SECURITY HEADERS
-            headers = r.headers
-            if 'X-Frame-Options' not in headers:
-                report.append("RISK: Missing 'X-Frame-Options'. Vulnerable to Clickjacking.")
+            # 2. SSL CHECK
+            hostname = urlparse(url).netloc
+            try:
+                ctx = ssl.create_default_context()
+                with ctx.wrap_socket(socket.socket(), server_hostname=hostname) as s:
+                    s.connect((hostname, 443))
+                    cert = s.getpeercert()
+                report.append("PASS: SSL Certificate Valid.")
+            except:
+                report.append("CRITICAL: SSL Invalid/Expired. Site is 'Not Secure'.")
                 issues += 1
                 fix_price += 150
-                fix_time += 1
 
-            # CHECK 3: SEO
+            # 3. SEO CHECK
             soup = BeautifulSoup(r.text, 'html.parser')
             if not soup.find("meta", attrs={"name": "description"}):
-                report.append("WEAKNESS: No Meta Description. Invisible to Search Engines.")
+                report.append("RISK: Missing SEO Tags. Invisible to Google.")
                 issues += 1
                 fix_price += 100
-                fix_time += 1
 
         except Exception as e:
-            report.append(f"FATAL: Site connection failed. {str(e)}")
+            report.append(f"FATAL: Site unreachable. {str(e)}")
             issues += 5
             fix_price += 500
 
-        # Generate Private Brief for YOU
-        admin_brief = (
-            f"🛠 **JOB QUOTE GENERATED**\n"
-            f"target: {url}\n"
-            f"Issues: {issues}\n"
-            f"💰 **Recommended Price:** ${fix_price + 100}\n"
-            f"⏳ **Time to Fix:** {fix_time + 1} Days\n\n"
-            f"**Pitch:** 'I scanned your site. You are losing traffic due to speed and security headers. I can fix it by Thursday.'"
-        )
-
-        pdf_path = self.generate_pdf("WEBSITE", url, report, issues)
-        return pdf_path, admin_brief
+        admin_brief = f"🛠 **QUOTE:** ${fix_price + 100}\nTarget: {url}\nIssues: {issues}"
+        pdf = self.generate_pdf("WEBSITE", url, report)
+        return pdf, admin_brief
 
     def audit_wallet(self, wallet):
         report = []
-        issues = 0
-
         try:
-            balance = self.w3.from_wei(self.w3.eth.get_balance(wallet), 'ether')
+            bal = self.w3.from_wei(self.w3.eth.get_balance(wallet), 'ether')
             tx_count = self.w3.eth.get_transaction_count(wallet)
+            report.append(f"Wallet: {wallet}")
+            report.append(f"Balance: {bal:.4f} ETH")
+            report.append(f"Nonce: {tx_count}")
+            if tx_count == 0: report.append("STATUS: Inactive Wallet")
+            else: report.append("STATUS: Active Trader")
+        except: report.append("Error scanning blockchain.")
 
-            report.append(f"Analysis of: {wallet}")
-            report.append(f"Balance: {balance:.4f} ETH")
-            report.append(f"Transactions: {tx_count}")
+        pdf = self.generate_pdf("WALLET", wallet, report)
+        return pdf, f"🔍 WALLET SCAN: {wallet}"
 
-            if tx_count == 0:
-                report.append("WARNING: Inactive / Virgin Wallet.")
-            elif tx_count > 1000:
-                report.append("NOTE: High Frequency Wallet (Possible Bot/Exchange).")
-
-        except Exception as e:
-            report.append(f"Error: {e}")
-
-        admin_brief = f"🔍 **WALLET INTEL**\nAddress: {wallet}\nBalance: {balance} ETH\nActive: Yes"
-        pdf_path = self.generate_pdf("WALLET", wallet, report, 0)
-        return pdf_path, admin_brief
-
-    def generate_pdf(self, type, target, lines, score):
+    def generate_pdf(self, type, target, lines):
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size=12)
-
-        # Header
-        pdf.set_font("Arial", 'B', 16)
-        pdf.cell(200, 10, txt="VANGUARD SECURITY REPORT", ln=1, align='C')
-        pdf.set_font("Arial", size=10)
-        pdf.cell(200, 10, txt=f"Target: {target} | Type: {type} AUDIT", ln=1, align='C')
+        pdf.cell(200, 10, txt="VANGUARD SECURITY AUDIT", ln=1, align='C')
+        pdf.cell(200, 10, txt=f"Target: {target} [{type}]", ln=1, align='C')
         pdf.ln(10)
-
-        # Body
-        pdf.set_font("Arial", size=11)
         for line in lines:
             pdf.multi_cell(0, 10, txt=line)
-
-        # Footer
         pdf.ln(20)
-        pdf.set_font("Arial", 'I', 10)
-        pdf.cell(0, 10, txt="Generated by Vanguard Security Engine. Contact @RobertSmithETH for fixes.", ln=1, align='C')
-
-        filename = "Vanguard_Report.pdf"
+        pdf.cell(0, 10, txt="Generated by IceReign Systems.", ln=1, align='C')
+        filename = f"audit_{int(time.time())}.pdf"
         pdf.output(filename)
         return filename
