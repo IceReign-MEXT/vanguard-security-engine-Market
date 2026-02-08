@@ -3,108 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VANGUARD | SITE AUDITOR</title>
+    <title>VANGUARD | SECURITY MONITOR</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #050505; color: #00ff41; font-family: 'Courier New', monospace; }
-        .border-neon { border: 1px solid #00ff41; box-shadow: 0 0 10px #00ff41; }
-        .btn:hover { background-color: #00ff41; color: black; cursor: pointer; }
+        body { background-color: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; }
+        .border-green { border: 1px solid #00ff41; box-shadow: 0 0 10px #00ff41; }
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4">
+<body class="p-4 md:p-10">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- HEADER -->
+        <header class="mb-10 flex justify-between items-center border-b border-[#00ff41] pb-4">
+            <h1 class="text-3xl font-bold">VANGUARD <span class="text-white">SECURITY</span></h1>
+            <div class="text-xs text-right">
+                <p>SYSTEM STATUS: <span class="blink">ONLINE</span></p>
+                <p>DATABASE: ENCRYPTED</p>
+            </div>
+        </header>
 
-    <div class="max-w-2xl w-full">
-        <h1 class="text-4xl font-bold text-center mb-2">VANGUARD ENGINE</h1>
-        <p class="text-center text-xs mb-8 text-gray-500">WEB PERFORMANCE & SECURITY INTERCEPTOR</p>
-
-        <div class="border-neon p-6 rounded bg-black">
-            <label class="text-xs uppercase">Target URL:</label>
-            <div class="flex gap-2 mt-2">
-                <input type="text" id="url" placeholder="example.com" class="w-full bg-gray-900 border border-gray-700 p-3 text-white focus:outline-none focus:border-green-500">
-                <button onclick="runAudit()" class="border-neon px-6 py-3 font-bold btn">SCAN</button>
+        <!-- METRICS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="p-6 border-green bg-black">
+                <h3 class="text-white text-sm">TOTAL TARGETS SCANNED</h3>
+                <p class="text-4xl font-bold mt-2">{{ total }}</p>
+            </div>
+            <div class="p-6 border-green bg-black">
+                <h3 class="text-red-500 text-sm">THREATS DETECTED</h3>
+                <p class="text-4xl font-bold mt-2 text-red-500">{{ threats }}</p>
+            </div>
+            <div class="p-6 border-green bg-black">
+                <h3 class="text-white text-sm">ACTION REQUIRED</h3>
+                <a href="https://t.me/RobertSmithETH" class="block mt-2 bg-[#00ff41] text-black text-center py-2 font-bold hover:bg-white">CONTACT AGENT</a>
             </div>
         </div>
 
-        <div id="loading" class="hidden text-center mt-8 animate-pulse">
-            [ INITIALIZING SCANNER... ]
+        <!-- LIVE FEED -->
+        <div class="border-green p-6 bg-black/80">
+            <h3 class="text-xl mb-4 text-white">📡 LIVE VULNERABILITY FEED</h3>
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="text-gray-500 border-b border-gray-800">
+                        <th class="py-2">TARGET</th>
+                        <th>ISSUES</th>
+                        <th>FIX COST</th>
+                        <th>STATUS</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-300">
+                    {% for scan in scans %}
+                    <tr class="border-b border-gray-900 font-mono">
+                        <td class="py-3 text-[#00ff41]">{{ scan[0] }}</td>
+                        <td class="py-3">{{ scan[1] }}</td>
+                        <td class="py-3 text-white font-bold">${{ scan[2] }}</td>
+                        <td class="py-3">
+                            <span class="{{ 'text-red-500' if 'CRITICAL' in scan[3] else 'text-green-500' }}">{{ scan[3] }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
 
-        <div id="results" class="hidden mt-8 border-neon p-6 rounded bg-black/80">
-            <div class="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
-                <h2 class="text-xl font-bold" id="domain">TARGET ACQUIRED</h2>
-                <div class="text-3xl font-black" id="score">0/100</div>
-            </div>
-
-            <div class="grid grid-cols-3 gap-4 mb-6 text-center">
-                <div class="p-2 border border-gray-800 rounded">
-                    <p class="text-xs text-gray-500">SPEED</p>
-                    <p class="font-bold" id="speed">0s</p>
-                </div>
-                <div class="p-2 border border-gray-800 rounded">
-                    <p class="text-xs text-gray-500">SSL</p>
-                    <p class="font-bold" id="ssl">CHECKING</p>
-                </div>
-                <div class="p-2 border border-gray-800 rounded">
-                    <p class="text-xs text-gray-500">SEO</p>
-                    <p class="font-bold" id="seo">CHECKING</p>
-                </div>
-            </div>
-
-            <h3 class="text-red-500 font-bold mb-2">VULNERABILITIES:</h3>
-            <ul id="issues" class="text-sm text-red-400 list-disc pl-5 mb-6 space-y-1"></ul>
-
-            <div class="bg-gray-900 p-4 rounded border border-gray-700">
-                <p class="text-xs text-gray-500 mb-2">GENERATED CLIENT EMAIL (COPY & SEND):</p>
-                <textarea id="pitch" class="w-full h-32 bg-black text-white text-xs p-2 border border-gray-800" readonly></textarea>
-            </div>
-        </div>
     </div>
-
-    <script>
-        async function runAudit() {
-            const url = document.getElementById('url').value;
-            if(!url) return;
-
-            document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('results').classList.add('hidden');
-
-            try {
-                const res = await fetch('/scan', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({url: url})
-                });
-                const data = await res.json();
-
-                document.getElementById('domain').innerText = data.domain;
-                document.getElementById('score').innerText = data.score + "/100";
-                document.getElementById('score').className = data.score > 80 ? "text-3xl font-black text-green-500" : "text-3xl font-black text-red-500";
-                
-                document.getElementById('speed').innerText = data.speed + "s";
-                document.getElementById('ssl').innerText = data.ssl ? "SECURE" : "UNSAFE";
-                document.getElementById('seo').innerText = data.seo ? "GOOD" : "MISSING";
-                
-                const list = document.getElementById('issues');
-                list.innerHTML = "";
-                data.issues.forEach(i => {
-                    let li = document.createElement('li');
-                    li.innerText = i;
-                    list.appendChild(li);
-                });
-
-                document.getElementById('pitch').value = data.pitch;
-                
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('results').classList.remove('hidden');
-            } catch(e) {
-                alert("Scan Failed. Check URL.");
-                document.getElementById('loading').classList.add('hidden');
-            }
-        }
-    </script>
 </body>
 </html>
-
-
 
 
