@@ -1,124 +1,176 @@
-#!/usr/bin/env python3
 import os
-import threading
 import time
-import asyncpg
 import asyncio
-from flask import Flask
+import asyncpg
+import psycopg2
+import threading
 from dotenv import load_dotenv
+from flask import Flask, render_template
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from telegram.constants import ParseMode
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
+
 from auditor import VanguardAuditor
 
 # --- CONFIGURATION ---
 load_dotenv()
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8545903212:AAE7V0U6JHXk4NR3o4DuQlBohoeikyZfl9k") # Failsafe
-CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID", "-1003844332949")
-ADMIN_ID = os.getenv("TELEGRAM_CHAT_ID", "8254662446")
-DATABASE_URL = os.getenv("DATABASE_URL")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID")
+ADMIN_ID = os.getenv("TELEGRAM_CHAT_ID")
+RAW_DB = os.getenv("DATABASE_URL", "")
+# Force correct port and SSL for Supabase connection
+DB_URL = RAW_DB.replace(":5432/", ":6543/") if ":5432/" in RAW_DB else RAW_DB
+if "sslmode" not in DB_URL: DB_URL += "?sslmode=require"
 
-# Engine
 auditor = VanguardAuditor()
 
-# --- FLASK SERVER ---
-flask_app = Flask(__name__)
-@flask_app.route("/")
-def health(): return "VANGUARD V100 ONLINE", 200
+# --- FLASK DASHBOARD (WEB) ---
+app = Flask(__name__)
+
+def get_dashboard_data():
+    try:
+        conn = psycopg2.connect(DB_URL)
+        cur = conn.cursor()
+        # 1. Total Scans
+        cur.execute("SELECT COUNT(*) FROM vanguard_audits;")
+        total = cur.fetchone()[0]
+        # 2. Threats (Score < 80)
+        cur.execute("SELECT COUNT(*) FROM vanguard_audits WHERE score < 80;")
+        threats = cur.fetchone()[0]
+        # 3. Live Logs
+        cur.execute("SELECT target, score, fix_price, status FROM vanguard_audits ORDER BY created_at DESC LIMIT 10;")
+        logs = cur.fetchall()
+        cur.close()
+        conn.close()
+        return total, threats, logs
+    except Exception as e:
+        print(f"Web DB Error: {e}")
+        return 0, 0,[]
+
+@app.route('/')
+def dashboard():
+    total, threats, logs = get_dashboard_data()
+    return render_template('index.html', total_scans=total, threats=threats, logs=logs)
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
-    flask_app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)
 
-# --- DATABASE LOGGING (Updates Dashboard) ---
-async def log_audit(target):
-    if not DATABASE_URL: return
+# --- DATABASE SETUP (BOT) ---
+pool = None
+async def init_db():
+    global pool
     try:
-        # Use port 6543 pooler safely
-        db_url = DATABASE_URL
-        if "sslmode" not in db_url: db_url += "?sslmode=require"
-        
-        conn = await asyncpg.connect(db_url)
-        
-        # Log that an audit happened (We log it as pending revenue or audit service)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS vanguard_logs (
-                id SERIAL PRIMARY KEY, target TEXT, status TEXT, created_at BIGINT
-            )
-        """)
-        await conn.execute("INSERT INTO vanguard_logs (target, status, created_at) VALUES ($1, 'CRITICAL', $2)", target, int(time.time()))
-        await conn.close()
-        print("✅ Audit Logged to Dashboard DB")
-    except Exception as e:
-        print(f"⚠️ DB Error: {e}")
+        pool = await asyncpg.create_pool(DB_URL, statement_cache_size=0)
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS vanguard_audits (
+                    id SERIAL PRIMARY KEY,
+                    telegram_id TEXT,
+                    target TEXT,
+                    score INT,
+                    fix_price INT,
+                    status TEXT,
+                    created_at BIGINT
+                )
+            """)
+        print("✅ DB Synced")
+    except Exception as e: print(f"⚠️ DB Error: {e}")
 
-# --- HANDLERS ---
+# --- TELEGRAM HANDLERS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = (
-        "🛡 **VANGUARD FORENSICS V100**\n\n"
-        "Institutional Cyber-Security & Blockchain Scanner.\n\n"
-        "**Supported Targets:**\n"
-        "🌐 Websites / DApps\n"
-        "🔷 Ethereum Contracts (0x...)\n"
-        "🟣 Solana Tokens\n"
-        "₿ Bitcoin Wallets\n\n"
-        "👇 **Paste a URL or Address to begin Deep Scan:**"
+        "🛡 **VANGUARD SECURITY ENGINE**\n\n"
+        "Institutional-grade Web Forensics.\n\n"
+        "👇 **Paste a Website URL (e.g., website.com) to begin your free audit:**"
     )
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
-async def handle_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def scan_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target = update.message.text.strip()
+    if len(target) < 4 or "." not in target: return
     
-    if len(target) < 5: return
-    
-    status_msg = await update.message.reply_text("🛰 **Initializing Deep Forensic Scan...**\nChecking vulnerabilities...")
+    msg = await update.message.reply_text("🛰 **Analyzing server headers & load speeds...**")
     
     try:
-        # 1. Generate PDF
-        pdf_path, issues, price = auditor.analyze_target(target)
+        # Run Auditor
+        pdf_path, score, price = auditor.analyze_target(target)
         
-        if pdf_path:
-            # 2. Log to Dashboard
-            await log_audit(target)
+        if not pdf_path:
+            await msg.edit_text("❌ Scan Failed. Site unreachable.")
+            return
+
+        status = "CRITICAL VULNERABILITY" if score < 70 else "SECURE"
+
+        # Log to Database (Updates Dashboard Immediately!)
+        if pool:
+            try:
+                await pool.execute(
+                    "INSERT INTO vanguard_audits (telegram_id, target, score, fix_price, status, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+                    str(update.effective_user.id), target, score, price, status, int(time.time())
+                )
+            except Exception as e: print(e)
+
+        # Reply to User
+        report_msg = (
+            f"🚨 **AUDIT COMPLETE**\n\n"
+            f"🎯 **Target:** `{target}`\n"
+            f"⚠️ **Score:** {score}/100\n\n"
+            f"📄 *I have generated your professional PDF report.*"
+        )
+        
+        kb = [[InlineKeyboardButton("🛠 Request Fix Quote", callback_data=f"fix_{price}")]]
+        
+        await msg.delete()
+        await update.message.reply_document(
+            document=open(pdf_path, 'rb'),
+            caption=report_msg,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=InlineKeyboardMarkup(kb)
+        )
+
+        # Alert Channel
+        if CHANNEL_ID:
+            try:
+                alert = f"🚨 **THREAT DETECTED**\n\nTarget: `{target}`\nScore: {score}/100\n\n*Vanguard Security Scan.*"
+                await context.bot.send_message(CHANNEL_ID, alert, parse_mode=ParseMode.MARKDOWN)
+            except: pass
             
-            # 3. Send PDF to User
-            await update.message.reply_document(
-                document=open(pdf_path, 'rb'),
-                caption=f"✅ **AUDIT COMPLETE.**\n\n⚠️ **CRITICAL RISKS FOUND.**\nDownload your PDF report immediately. Forward to your developer or contact @MexRobertICE for the patch."
-            )
-            
-            # 4. Blast to Channel (Marketing)
-            if CHANNEL_ID:
-                try:
-                    alert = (
-                        f"🚨 **VANGUARD VULNERABILITY DETECTED** 🚨\n\n"
-                        f"🎯 **Target:** `{target}`\n"
-                        f"⚠️ **Risk Level:** CRITICAL\n"
-                        f"🛠 **Action:** Deep-Scan PDF Generated.\n\n"
-                        f"🛡 *Run your own scan:* @VanguardSecurity_bot"
-                    )
-                    await context.bot.send_document(chat_id=CHANNEL_ID, document=open(pdf_path, 'rb'), caption=alert, parse_mode=ParseMode.MARKDOWN)
-                except Exception as e:
-                    print(f"Channel Post Error: {e}")
-            
-            # Cleanup File
-            os.remove(pdf_path)
-            await status_msg.delete()
-        else:
-            await status_msg.edit_text("❌ Scan Failed. Invalid Format. Use HTTP, 0x, or SOL address.")
+        os.remove(pdf_path) # Cleanup
 
     except Exception as e:
-        await status_msg.edit_text(f"⚠️ System Error: {e}")
+        await msg.edit_text(f"⚠️ Error: {e}")
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data.startswith("fix_"):
+        price = query.data.split("_")[1]
+        await query.message.reply_text(
+            f"👨‍💻 **ENGINEER DISPATCHED**\n\n"
+            f"Our team can patch these vulnerabilities for **${price} USD**.\n"
+            f"Please contact Head Engineer @MexRobertICE to proceed."
+        )
 
 # --- MAIN ---
 def main():
+    # 1. Start Dashboard Server
     threading.Thread(target=run_web, daemon=True).start()
+    
+    # 2. Start Telegram Bot
     app = Application.builder().token(BOT_TOKEN).build()
     
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_scan))
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try: loop.run_until_complete(init_db())
+    except: pass
     
-    print("🚀 VANGUARD V100 FORENSICS LIVE...")
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, scan_target))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    
+    print("🚀 VANGUARD V5.0 LIVE...")
     app.run_polling()
 
 if __name__ == "__main__":
