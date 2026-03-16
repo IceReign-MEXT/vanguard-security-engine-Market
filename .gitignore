@@ -1,9 +1,3 @@
 .env
-.env.local
 __pycache__/
-*.py[cod]
-venv/
-env/
-*.db
-*.log
-.DS_Store
+*.pdf
