@@ -1,4 +1,9 @@
 .env
+.env.local
 __pycache__/
-*.pdf
+*.py[cod]
 venv/
+env/
+*.db
+*.log
+.DS_Store
