@@ -8,3 +8,4 @@ aiohttp
 beautifulsoup4
 fpdf
 urllib3
+base58
