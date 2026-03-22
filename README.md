@@ -18,3 +18,14 @@ Vanguard is an automated cyber-security firm in a box. It scans Ethereum, Solana
 4. Deploy to Render using Python 3.11 Runtime.
 
 **Developed by IceReign Systems - Elite Blockchain Security.**
+## 🚨 Live Demo
+**Dashboard**: https://ice-gods-dashboard-85c6.vercel.app  
+**API**: https://vanguard-security-engine-market.onrender.com
+
+## 💼 Hire Us
+- Smart Contract Audits: $2,500 - $8,000
+- Automated Security Scans: $99 - $299
+- 24/7 Monitoring: $500/month
+
+**Contact**: [@ICEGODSICEDEVILS](https://t.me/ICEGODSICEDEVILS)
+
