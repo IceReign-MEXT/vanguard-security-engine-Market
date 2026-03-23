@@ -2,11 +2,10 @@ python-dotenv
 flask
 requests
 python-telegram-bot>=20.0
+web3
 asyncpg
-psycopg2-binary
 aiohttp
+gunicorn
 beautifulsoup4
 fpdf
 urllib3
-base58
-gunicorn
